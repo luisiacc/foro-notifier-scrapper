@@ -3,9 +3,11 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from bs4 import BeautifulSoup
-from os import system
+from os import system, getcwd
+from json import dump, load
 import style
 import requests
+import sys
 
 requests.packages.urllib3.disable_warnings()    # Deshabilitar advertencias
 
@@ -49,7 +51,7 @@ class Login(QWidget):
         self.NombrePerfil.setFont(font)
         self.NombrePerfil.setStyleSheet(style.label)
 
-        self.EditNombre = QLineEdit()
+        self.EditNombre = QLineEdit(textChanged=self.save_data)
         self.EditNombre.setAlignment(Qt.AlignCenter)
         self.EditNombre.setStyleSheet(style.lineedit)
 
@@ -57,7 +59,7 @@ class Login(QWidget):
         self.PassPerfil.setFont(font)
         self.PassPerfil.setStyleSheet(style.label)
 
-        self.EditPass = QLineEdit()
+        self.EditPass = QLineEdit(textChanged=self.save_data)
         self.EditPass.setAlignment(Qt.AlignCenter)
         self.EditPass.setStyleSheet(style.lineedit)
         self.EditPass.setEchoMode(QLineEdit.Password)
@@ -89,18 +91,24 @@ class Login(QWidget):
         self.CenterLayout.addWidget(self.EditCAPTCHA)
         self.CenterLayout.addWidget(self.Aceptar, alignment=Qt.AlignCenter)
 
-    def loguearse(self):
-        payloads = {
-        'username': self.EditNombre.text(),
-        'password': self.EditPass.text(),
-        'login': 'Login',
-        'sid': '',
-        'confirm_code': self.EditCAPTCHA.text(),
-        'confirm_id': self.EditCAPTCHA.captchaID,
-        'redirect': 'index.php'
-        }
+    def save_data(self):
+        userdata = {'user': self.EditNombre.text(), 'password': self.EditPass.text()}
+        with open('profile.cfg', 'w', encoding='cp1026')as h:
+            dump(userdata, h)
 
-        html = session.post(LOGIN_URL, data=payloads)
+    def loguearse(self):
+
+        self.payloads = {
+            'username': self.EditNombre.text(),
+            'password': self.EditPass.text(),
+            'login': 'Login',
+            'sid': '',
+            'confirm_code': self.EditCAPTCHA.text(),
+            'confirm_id': self.EditCAPTCHA.captchaID,
+            'redirect': 'index.php'
+            }
+
+        html = session.post(LOGIN_URL, data=self.payloads)
 
         if html.status_code == 200:
             html = BeautifulSoup(html.text, "html.parser")
@@ -125,6 +133,7 @@ class Login(QWidget):
                     self.LabelCAPTCHA.show()
                     self.ImagenCAPTCHA.show()
                     self.EditCAPTCHA.show()
+
             else:
                 self.close()
 
@@ -148,10 +157,9 @@ class ScrapTo:
         self.getpostsTimer = QTimer(timeout=self.getNewPosts)
         self.getpostsTimer.start(10000)
         self.setTrayIconTimer = QTimer(timeout=self.setTrayIcon)
-        self.setTrayIconTimer.start(1000)
+        self.setTrayIconTimer.start(500)
 
     def getNotif(self):
-        sound_counter = 0
         if not Login.isVisible():
                 html = session.get(FORO_URL)
                 if html.status_code == 200:
@@ -185,19 +193,17 @@ class ScrapTo:
             user = i.find('a', 'username-coloured')
 
             try:
+                topiclist.append(topic.text)
 
-                    topiclist.append(topic.text)
+                try:
+                    usernames.append(user.text)
 
-                    try:
-                        usernames.append(user.text)
-
-                    except:
-                        user = i.find('a', 'username')
-                        usernames.append(user.text)
+                except:
+                    user = i.find('a', 'username')
+                    usernames.append(user.text)
 
             except:
-
-                    pass
+                pass
 
         for a, b in zip(topiclist, usernames):
             text = "'{topic}'iniciado por: {user}".format(topic=a, user=b)
@@ -211,6 +217,9 @@ class ScrapTo:
             else:
                 self.Icono = 1
                 app.trayIcon.setIcon(QIcon(icons[0]))
+        else:
+            app.trayIcon.setIcon(QIcon(icons[0]))
+
 
 class Notificar(QWidget):
     def __init__(self):
@@ -240,7 +249,7 @@ class Notificar(QWidget):
 
         self.Avatar = QLabel('<a href=http://192.168.16.113> </a>')
         self.Avatar.setOpenExternalLinks(True)
-        self.Avatar.setPixmap(QPixmap('images/forum.png'))
+        self.Avatar.setPixmap(QPixmap('images/notif_logo.png'))
         self.Avatar.setAlignment(Qt.AlignCenter)
         self.Avatar.setMaximumSize(50, 50)
         self.Avatar.setStyleSheet(style.label)
@@ -301,14 +310,38 @@ class Notificar(QWidget):
 
 
 def acercaDe():
-    QMessageBox.information(QWidget(), "Acerca de...", "Version: 1.4b\n"
+    QMessageBox.information(QWidget(), "Acerca de...", "Version: 2.1b\n"
                                                    "Autor: aCC")
 
 def goForo():
-    system("start http://192.168.16.113")
+    system("start http://192.168.16.113") #Windows OS
+
+def InicioWindows():
+    pass
+
+def check_profile():
+    try:
+        #obteniendo los datos de usuario
+        with open('profile.cfg', encoding='cp1026') as h:
+                mypro = load(h)
+        return mypro
+
+    except:
+        return 0
+
+def delprofile():
+    msg = QMessageBox()
+    msg.setText("¿ Estas seguro de borrar tu perfil ?")
+    msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+    value = msg.exec_()
+    if value == 1024:
+        with open('profile.cfg', 'w', encoding='cp1026') as m:
+            pass
+    else:
+        pass
 
 if __name__ == '__main__':
-    app = QApplication([])
+    app = QApplication([sys.argv])
     app.setApplicationName('Notificador Foro HLG')
     app.setWindowIcon(QIcon(icons[0]))
     QApplication.setQuitOnLastWindowClosed(False)
@@ -319,10 +352,13 @@ if __name__ == '__main__':
     app.trayIcon = QSystemTrayIcon()
     trayIconMenu = QMenu()
 
-    goForoAction = QAction(QIcon('images/forum.png'),"&Foro HLG", app, triggered=goForo)
+    goForoAction = QAction(QIcon('images/notif_logo.png'),"&Foro HLG", app, triggered=goForo)
     quitAction = QAction(QIcon('images/salirtray.png'),"&Salir", app, triggered=QApplication.instance().quit)
     acercaDeAction = QAction(QIcon('images/info.png'),"&Acerca de...", app, triggered=acercaDe)
+    delprofileAction = QAction(QIcon('images/remove.png'), "&Eliminar mi perfil", app, triggered=delprofile)
 
+    trayIconMenu.addAction(delprofileAction)
+    trayIconMenu.addSeparator()
     trayIconMenu.addAction(goForoAction)
     trayIconMenu.addAction(acercaDeAction)
     trayIconMenu.addAction(quitAction)
@@ -331,9 +367,26 @@ if __name__ == '__main__':
     app.trayIcon.setIcon(QIcon(icons[0]))
     app.trayIcon.show()
 
-    Login = Login()
-    Login.show()
-    Scrap = ScrapTo()
+    if check_profile():
+        Login = Login()
+        data = check_profile()
+
+        # Cuando se guarden las credenciales no hara falta manejar errores ya que
+        # no hay error
+        payloads = {
+            'username': data['user'],
+            'password': data['password'],
+            'login': 'Login',
+            'sid': '',
+            'redirect': 'index.php'
+            }
+
+        html = session.post(LOGIN_URL, data=payloads)
+        ScrapTo = ScrapTo()
+    else:
+        Login = Login()
+        Login.show()
+        Scrap = ScrapTo()
 
 
     app.exec_()
