@@ -7,7 +7,6 @@ from os import system, getcwd
 from json import dump, load
 import style
 import requests
-import sys
 
 requests.packages.urllib3.disable_warnings()    # Deshabilitar advertencias
 
@@ -93,7 +92,7 @@ class Login(QWidget):
 
     def save_data(self):
         userdata = {'user': self.EditNombre.text(), 'password': self.EditPass.text()}
-        with open('profile.cfg', 'w', encoding='cp1026')as h:
+        with open(getcwd()+'\profile.cfg', 'w', encoding='cp1026')as h:
             dump(userdata, h)
 
     def loguearse(self):
@@ -148,7 +147,7 @@ class ScrapTo:
     def __init__(self):
         self.Notifi = 0
         self.Icono = 0
-        url = QUrl.fromLocalFile("sounds/sound.wav")
+        url = QUrl.fromLocalFile(getcwd()+"\sounds\sound.wav")
         content = QMediaContent(url)
         self.player = QMediaPlayer()
         self.player.setMedia(content)
@@ -179,6 +178,9 @@ class ScrapTo:
                             en.setTitulo(notificaciones)
                         self.Notifi = int(notificaciones)
                         Login.setTryIconTip(self.Notifi)
+
+                else:
+                    pass
 
     def getNewPosts(self):
         self.posts = []
@@ -249,7 +251,7 @@ class Notificar(QWidget):
 
         self.Avatar = QLabel('<a href=http://192.168.16.113> </a>')
         self.Avatar.setOpenExternalLinks(True)
-        self.Avatar.setPixmap(QPixmap('images/notif_logo.png'))
+        self.Avatar.setPixmap(QPixmap(getcwd()+'\images\motif_logo.png'))
         self.Avatar.setAlignment(Qt.AlignCenter)
         self.Avatar.setMaximumSize(50, 50)
         self.Avatar.setStyleSheet(style.label)
@@ -263,7 +265,7 @@ class Notificar(QWidget):
 
         self.cerrar = QPushButton(clicked=lambda: self.close())
         self.cerrar.setGeometry(20, 20, 20, 20)
-        self.cerrar.setIcon(QIcon('images/salirtray.png'))
+        self.cerrar.setIcon(QIcon(getcwd()+'\images\salirtray.png'))
         self.cerrar.setMaximumSize(20, 20)
         self.cerrar.setStyleSheet('background: transparent')
 
@@ -322,7 +324,7 @@ def InicioWindows():
 def check_profile():
     try:
         #obteniendo los datos de usuario
-        with open('profile.cfg', encoding='cp1026') as h:
+        with open(getcwd()+'\profile.cfg', encoding='cp1026') as h:
                 mypro = load(h)
         return mypro
 
@@ -335,13 +337,21 @@ def delprofile():
     msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     value = msg.exec_()
     if value == 1024:
-        with open('profile.cfg', 'w', encoding='cp1026') as m:
+        with open(getcwd()+'\profile.cfg', 'w', encoding='cp1026') as m:
             pass
     else:
         pass
 
+def page_available():
+    # devuelve: 1- Pagina disponible, 0-No disponible
+    availability = requests.get('http://192.168.16.113', verify=False)
+    if availability.status_code == 200:
+        return 1
+    else:
+        return 0
+
 if __name__ == '__main__':
-    app = QApplication([sys.argv])
+    app = QApplication([])
     app.setApplicationName('Notificador Foro HLG')
     app.setWindowIcon(QIcon(icons[0]))
     QApplication.setQuitOnLastWindowClosed(False)
@@ -352,10 +362,10 @@ if __name__ == '__main__':
     app.trayIcon = QSystemTrayIcon()
     trayIconMenu = QMenu()
 
-    goForoAction = QAction(QIcon('images/notif_logo.png'),"&Foro HLG", app, triggered=goForo)
-    quitAction = QAction(QIcon('images/salirtray.png'),"&Salir", app, triggered=QApplication.instance().quit)
-    acercaDeAction = QAction(QIcon('images/info.png'),"&Acerca de...", app, triggered=acercaDe)
-    delprofileAction = QAction(QIcon('images/remove.png'), "&Eliminar mi perfil", app, triggered=delprofile)
+    goForoAction = QAction(QIcon(getcwd()+'\images\motif_logo.png'),"&Foro HLG", app, triggered=goForo)
+    quitAction = QAction(QIcon(getcwd()+'\images\salirtray.png'),"&Salir", app, triggered=QApplication.instance().quit)
+    acercaDeAction = QAction(QIcon(getcwd()+'\images\info.png'),"&Acerca de...", app, triggered=acercaDe)
+    delprofileAction = QAction(QIcon(getcwd()+'\images\dremove.png'), "&Eliminar mi perfil", app, triggered=delprofile)
 
     trayIconMenu.addAction(delprofileAction)
     trayIconMenu.addSeparator()
@@ -367,26 +377,31 @@ if __name__ == '__main__':
     app.trayIcon.setIcon(QIcon(icons[0]))
     app.trayIcon.show()
 
-    if check_profile():
-        Login = Login()
-        data = check_profile()
+    if page_available():
 
-        # Cuando se guarden las credenciales no hara falta manejar errores ya que
-        # no hay error
-        payloads = {
-            'username': data['user'],
-            'password': data['password'],
-            'login': 'Login',
-            'sid': '',
-            'redirect': 'index.php'
-            }
+        if check_profile():
+            Login = Login()
+            data = check_profile()
 
-        html = session.post(LOGIN_URL, data=payloads)
-        ScrapTo = ScrapTo()
+            # Cuando se guarden las credenciales no hara falta manejar errores ya que
+            # no hay error
+            payloads = {
+                'username': data['user'],
+                'password': data['password'],
+                'login': 'Login',
+                'sid': '',
+                'redirect': 'index.php'
+                }
+
+            html = session.post(LOGIN_URL, data=payloads)
+            ScrapTo = ScrapTo()
+        else:
+            Login = Login()
+            Login.show()
+            Scrap = ScrapTo()
+
     else:
-        Login = Login()
-        Login.show()
-        Scrap = ScrapTo()
+        app.TrayIcon.setToolTip('No conectado')
 
 
     app.exec_()
