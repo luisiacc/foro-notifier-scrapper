@@ -26,6 +26,15 @@ session.headers = headers
 session.verify = False
 #
 
+# Variables de archivos a usar (imagenes, texto, sonido) , 
+# el getcwd es que estoy probando una cosa, yo se que no hace falta.
+my_profile_data = getcwd()+'\profile.cfg'
+icon_forum_logo = getcwd()+'\images\motif_logo.png'
+icon_exit = getcwd()+'\images\salirtray.png'
+icon_info = getcwd()+'\images\info.png'
+icon_remove = getcwd()+'\images\dremove.png'
+notification_sound = getcwd()+'\sounds\sound.wav'
+
 class Login(QWidget):
     def __init__(self):
         super().__init__()
@@ -92,7 +101,7 @@ class Login(QWidget):
 
     def save_data(self):
         userdata = {'user': self.EditNombre.text(), 'password': self.EditPass.text()}
-        with open('./profile.cfg', 'w', encoding='cp1026')as h:
+        with open(my_profile_data, 'w', encoding='cp1026')as h:
             dump(userdata, h)
 
     def loguearse(self):
@@ -136,9 +145,11 @@ class Login(QWidget):
             else:
                 self.close()
 
-    def setTryIconTip(self, text):
+    def setTryIconTip(self, text=0, msgs=0):
         if text > 0:
             app.trayIcon.setToolTip("Tiene %s notificaciones." % text)
+        elif msgs > 0:
+            app.trayIcon.setToolTip("Hay mensajes nuevos")
         else:
             app.trayIcon.setToolTip("No tiene notificaciones.")
 
@@ -147,14 +158,14 @@ class ScrapTo:
     def __init__(self):
         self.Notifi = 0
         self.Icono = 0
-        url = QUrl.fromLocalFile("sounds\sound.wav")
+        url = QUrl.fromLocalFile(notification_sound)
         content = QMediaContent(url)
         self.player = QMediaPlayer()
         self.player.setMedia(content)
         self.getPaginaTimer = QTimer(timeout=self.getNotif)
         self.getPaginaTimer.start(10000)
-        self.getpostsTimer = QTimer(timeout=self.getNewPosts)
-        self.getpostsTimer.start(10000)
+        #self.getpostsTimer = QTimer(timeout=self.getNewPosts)
+        #self.getpostsTimer.start(10000)
         self.setTrayIconTimer = QTimer(timeout=self.setTrayIcon)
         self.setTrayIconTimer.start(500)
 
@@ -184,7 +195,9 @@ class ScrapTo:
                     app.trayIcon.setToolTip('No conectado')
 
     def getNewPosts(self):
-        self.posts = []
+        # Aun en desarrollo
+        posts_before = []
+        posts_after = []
         html = session.get(NEWPOSTS_URL)
 
         soup = BeautifulSoup(html.content, 'html.parser')
@@ -210,7 +223,14 @@ class ScrapTo:
 
         for a, b in zip(topiclist, usernames):
             text = "'{topic}'iniciado por: {user}".format(topic=a, user=b)
-            self.posts.append(text)
+            posts_before.append(text)
+
+        if len(posts_after) < len(posts_before) != 0:
+            self.player.play()
+            en = Notificar()
+            en.setTitulo(notificaciones=0, msgs=1)
+
+        posts_after = posts_before
 
     def setTrayIcon(self):
         if self.Notifi != 0:
@@ -245,14 +265,14 @@ class Notificar(QWidget):
         self.show()
 
     def MainBody(self):
+
         Widget = QWidget()
 
         self.CenterLayout = QGridLayout()
         self.MainLayout = QHBoxLayout(Widget)
-
         self.Avatar = QLabel('<a href=http://192.168.16.113> </a>')
         self.Avatar.setOpenExternalLinks(True)
-        self.Avatar.setPixmap(QPixmap('images\motif_logo.png'))
+        self.Avatar.setPixmap(QPixmap('images/motif_logo.png'))
         self.Avatar.setAlignment(Qt.AlignCenter)
         self.Avatar.setMaximumSize(50, 50)
         self.Avatar.setStyleSheet(style.label)
@@ -266,9 +286,9 @@ class Notificar(QWidget):
 
         self.cerrar = QPushButton(clicked=lambda: self.close())
         self.cerrar.setGeometry(20, 20, 20, 20)
-        self.cerrar.setIcon(QIcon('images\salirtray.png'))
+        self.cerrar.setIcon(QIcon('images/salirtray.png'))
         self.cerrar.setMaximumSize(20, 20)
-        self.cerrar.setStyleSheet('background: transparent')
+        self.cerrar.setStyleSheet(style.label)
 
         self.CenterLayout.addWidget(self.Titulo, 0, 0)
         self.CenterLayout.addWidget(self.cerrar, 0, 1)
@@ -276,10 +296,12 @@ class Notificar(QWidget):
 
         self.MainLayout.addWidget(self.Avatar)
         self.MainLayout.addLayout(self.CenterLayout)
+        Widget.setStyleSheet(style.notifcation)
 
         return Widget
 
     def SetWidget(self):
+
         ListWidget = QListWidget()
 
         myQCustomQWidget = self.MainBody()
@@ -325,7 +347,7 @@ def InicioWindows():
 def check_profile():
     try:
         #obteniendo los datos de usuario
-        with open('./profile.cfg', encoding='cp1026') as h:
+        with open(my_profile_data, encoding='cp1026') as h:
                 mypro = load(h)
         return mypro
 
@@ -338,20 +360,21 @@ def delprofile():
     msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     value = msg.exec_()
     if value == 1024:
-        with open('./profile.cfg', 'w', encoding='cp1026') as m:
+        with open(my_profile_data, 'w', encoding='cp1026') as m:
             pass
     else:
         pass
 
 def page_available():
     # devuelve: 1- Pagina disponible, 0-No disponible
-    availability = requests.get('http://192.168.16.113', verify=False)
+    availability = requests.get(FORO_URL, verify=False)
     if availability.status_code == 200:
         return 1
     else:
         return 0
 
 if __name__ == '__main__':
+    QCoreApplication.processEvents()
     app = QApplication([])
     app.setApplicationName('Notificador Foro HLG')
     app.setWindowIcon(QIcon(icons[0]))
@@ -363,10 +386,10 @@ if __name__ == '__main__':
     app.trayIcon = QSystemTrayIcon()
     trayIconMenu = QMenu()
 
-    goForoAction = QAction(QIcon('images\motif_logo.png'),"&Foro HLG", app, triggered=goForo)
-    quitAction = QAction(QIcon('images\salirtray.png'),"&Salir", app, triggered=QApplication.instance().quit)
-    acercaDeAction = QAction(QIcon('images\info.png'),"&Acerca de...", app, triggered=acercaDe)
-    delprofileAction = QAction(QIcon('images\dremove.png'), "&Eliminar mi perfil", app, triggered=delprofile)
+    goForoAction = QAction(QIcon(icon_forum_logo),"&Foro HLG", app, triggered=goForo)
+    quitAction = QAction(QIcon(icon_exit),"&Salir", app, triggered=QApplication.instance().quit)
+    acercaDeAction = QAction(QIcon(icon_info),"&Acerca de...", app, triggered=acercaDe)
+    delprofileAction = QAction(QIcon(icon_remove), "&Eliminar mi perfil", app, triggered=delprofile)
 
     trayIconMenu.addAction(delprofileAction)
     trayIconMenu.addSeparator()
@@ -394,7 +417,11 @@ if __name__ == '__main__':
                 'redirect': 'index.php'
                 }
 
-            html = session.post(LOGIN_URL, data=payloads)
+            petic = session.post(LOGIN_URL, data=payloads)
+            html = BeautifulSoup(petic.text, 'html.parser')
+            resp = html.find('div', {'class': 'error'})
+            if resp:
+                Login.show()
             ScrapTo = ScrapTo()
         else:
             Login = Login()
