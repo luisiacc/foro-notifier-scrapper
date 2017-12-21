@@ -258,7 +258,7 @@ class Notificar(QWidget):
         self.CenterLayout.setSpacing(0)
 
         #add items
-        self.CenterLayout.addWidget(self.SetWidget())
+        self.CenterLayout.addWidget(self.MainBody())
         #
         self.setStyleSheet('background: rgb(137, 188, 255)')
         self.ocultar.start(3000)
@@ -272,7 +272,7 @@ class Notificar(QWidget):
         self.MainLayout = QHBoxLayout(Widget)
         self.Avatar = QLabel('<a href=http://192.168.16.113> </a>')
         self.Avatar.setOpenExternalLinks(True)
-        self.Avatar.setPixmap(QPixmap('images/motif_logo.png'))
+        self.Avatar.setPixmap(QPixmap(icon_forum_logo))
         self.Avatar.setAlignment(Qt.AlignCenter)
         self.Avatar.setMaximumSize(50, 50)
         self.Avatar.setStyleSheet(style.label)
@@ -286,7 +286,7 @@ class Notificar(QWidget):
 
         self.cerrar = QPushButton(clicked=lambda: self.close())
         self.cerrar.setGeometry(20, 20, 20, 20)
-        self.cerrar.setIcon(QIcon('images/salirtray.png'))
+        self.cerrar.setIcon(QIcon(icon_exit))
         self.cerrar.setMaximumSize(20, 20)
         self.cerrar.setStyleSheet(style.label)
 
@@ -299,18 +299,6 @@ class Notificar(QWidget):
         Widget.setStyleSheet(style.notifcation)
 
         return Widget
-
-    def SetWidget(self):
-
-        ListWidget = QListWidget()
-
-        myQCustomQWidget = self.MainBody()
-        lostwidg = QListWidgetItem(ListWidget)
-        lostwidg.setSizeHint(myQCustomQWidget.sizeHint())
-        ListWidget.addItem(lostwidg)
-        ListWidget.setItemWidget(lostwidg, myQCustomQWidget)
-
-        return ListWidget
 
     def Ocultar(self):
         if self.windowOpacity() <= 0.01:
@@ -339,7 +327,7 @@ def acercaDe():
                                                    "Autor: aCC")
 
 def goForo():
-    system("start http://192.168.16.113") #Windows OS
+    system("start %s" %FORO_URL) #Windows OS
 
 def InicioWindows():
     pass
