@@ -394,9 +394,7 @@ if __name__ == '__main__':
         if check_profile():
             Login = Login()
             data = check_profile()
-
-            # Cuando se guarden las credenciales no hara falta manejar errores ya que
-            # no hay error
+            
             payloads = {
                 'username': data['user'],
                 'password': data['password'],
