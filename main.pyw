@@ -29,6 +29,7 @@ session.verify = False
 #
 
 # Variables de archivos a usar (imagenes, texto, sonido)
+# getcwd - prueba que estoy haciendo cuando compilo para windows
 my_profile_data = getcwd() + '\profile.cfg'
 icon_forum_logo = getcwd() + '\images\motif_logo.png'
 icon_exit = getcwd() + '\images\salirtray.png'
@@ -190,28 +191,35 @@ class ScrapTo:
 
     def getNotif(self):
         if not Login.isVisible():
-            html = session.get(FORO_URL)
-            if html.status_code == 200:
-                html = BeautifulSoup(html.text, "html.parser")
-                resp = html.find('a', {'title': 'Identificarse'})
-                if resp:
-                    Login.show()
+            try:
+                html = session.get(FORO_URL)
+                if html.status_code == 200:
+                    html = BeautifulSoup(html.text, "html.parser")
+                    resp = html.find('a', {'title': 'Identificarse'})
+                    if resp:
+                        Login.show()
+                    else:
+                        try:
+                            notificaciones = int(html.title.string.split()[0][1])
+                        except:
+                            notificaciones = 0
+
+                        if self.Notifi < int(notificaciones) != 0:
+                            self.player.play()
+                            en = Notificar()
+                            en.setTitulo(notificaciones)
+
+                        self.Notifi = int(notificaciones)
+                        Login.setTryIconTip(self.Notifi)
+
                 else:
-                    try:
-                        notificaciones = int(html.title.string.split()[0][1])
-                    except:
-                        notificaciones = 0
-
-                    if self.Notifi < int(notificaciones) != 0:
-                        self.player.play()
-                        en = Notificar()
-                        en.setTitulo(notificaciones)
-
-                    self.Notifi = int(notificaciones)
-                    Login.setTryIconTip(self.Notifi)
-
-            else:
+                    app.trayIcon.setToolTip('No conectado')
+            except:
                 app.trayIcon.setToolTip('No conectado')
+
+
+
+
 
     def getNewPosts(self):
         # Aun en desarrollo
