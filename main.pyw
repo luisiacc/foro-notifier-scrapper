@@ -1,16 +1,18 @@
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout,\
+    QGridLayout, QApplication, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtCore import Qt, QUrl, QTimer, QCoreApplication
+from PyQt5.QtGui import QIcon, QPixmap, QFont, QCursor
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 from bs4 import BeautifulSoup
 from os import system, getcwd
 from json import dump, load
+import logging
 import style
-import requests
+from requests import Session, packages, get
 
-requests.packages.urllib3.disable_warnings()    # Deshabilitar advertencias
+packages.urllib3.disable_warnings()  # Deshabilitar advertencias
 
-#icons
+# iconos para mostrar en la barra
 icons = ['images/forum.png', 'images/forum_msg.png']
 
 # urls a usar
@@ -21,21 +23,27 @@ NOTIF_URL = 'https://192.168.16.113/ucp.php?i=ucp_notifications'
 headers = {'User-Agent': 'Mozilla/5.0'}
 
 # Iniciar Session()
-session = requests.Session()
+session = Session()
 session.headers = headers
 session.verify = False
 #
 
-# Variables de archivos a usar (imagenes, texto, sonido) , 
-# el getcwd es que estoy probando una cosa, yo se que no hace falta.
-my_profile_data = getcwd()+'\profile.cfg'
-icon_forum_logo = getcwd()+'\images\motif_logo.png'
-icon_exit = getcwd()+'\images\salirtray.png'
-icon_info = getcwd()+'\images\info.png'
-icon_remove = getcwd()+'\images\dremove.png'
-notification_sound = getcwd()+'\sounds\sound.wav'
+# Variables de archivos a usar (imagenes, texto, sonido)
+my_profile_data = getcwd() + '\profile.cfg'
+icon_forum_logo = getcwd() + '\images\motif_logo.png'
+icon_exit = getcwd() + '\images\salirtray.png'
+icon_info = getcwd() + '\images\info.png'
+icon_remove = getcwd() + '\images\dremove.png'
+notification_sound = getcwd() + '\sounds\sound.wav'
+
 
 class Login(QWidget):
+    """ Esta clase se utilizara para el logueo a la pagina, si se muesta la interfaz
+    de logueo, a medida que se vaya escribiendo se va guardando los datos que introdujo
+    el usuario en el archivo 'profile.cfg' , los datos se guardan codificados en 'cp1026'
+    para que algun pillo se siente en tu pc y no te los lea asi de jamon, al dar click
+    en el boton 'Aceptar' se loguea con los datos que escribiste"""
+
     def __init__(self):
         super().__init__()
 
@@ -74,10 +82,10 @@ class Login(QWidget):
 
         self.LabelCAPTCHA = QLabel("Codigo de confirmacion:")
         self.LabelCAPTCHA.setFont(font)
-        self.LabelCAPTCHA.hide()                            #
-        self.LabelCAPTCHA.setStyleSheet(style.label)        # Esto por si se equivoca mucho el passw
-                                                            # para mostrar el Captcha
-        self.ImagenCAPTCHA = QLabel('<img src="" />')       #
+        self.LabelCAPTCHA.hide()  #
+        self.LabelCAPTCHA.setStyleSheet(style.label)    # Esto por si se equivoca mucho el passw
+                                                        # para mostrar el Captcha
+        self.ImagenCAPTCHA = QLabel('<img src="" />')   #
         self.ImagenCAPTCHA.hide()
 
         self.EditCAPTCHA = QLineEdit()
@@ -100,6 +108,8 @@ class Login(QWidget):
         self.CenterLayout.addWidget(self.Aceptar, alignment=Qt.AlignCenter)
 
     def save_data(self):
+        """Guarda los datos que se escriben en los campos de edicion y los codifica
+        a 'cp1026' """
         userdata = {'user': self.EditNombre.text(), 'password': self.EditPass.text()}
         with open(my_profile_data, 'w', encoding='cp1026')as h:
             dump(userdata, h)
@@ -114,7 +124,7 @@ class Login(QWidget):
             'confirm_code': self.EditCAPTCHA.text(),
             'confirm_id': self.EditCAPTCHA.captchaID,
             'redirect': 'index.php'
-            }
+        }
 
         html = session.post(LOGIN_URL, data=self.payloads)
 
@@ -146,15 +156,24 @@ class Login(QWidget):
                 self.close()
 
     def setTryIconTip(self, text=0, msgs=0):
-        if text > 0:
+        if text:
             app.trayIcon.setToolTip("Tiene %s notificaciones." % text)
-        elif msgs > 0:
+        elif msgs:
             app.trayIcon.setToolTip("Hay mensajes nuevos")
         else:
             app.trayIcon.setToolTip("No tiene notificaciones.")
 
 
 class ScrapTo:
+    """Esta clase se encarga de extraer los datos de la pagina, en este caso , cada vez
+    que hay una notificacion, en el titulo aparece el numero de notificaciones,
+    Ej: (1)Forum-HLG
+    cada vez que haya un numero en el titulo, se notifica por sonido usando 'QMediaPlayer', y mostrando
+    una notificacion(definida en una clase posterior)
+    Las peticiones se hacen cada 10 segundos, que esta definido en la linea:
+    self.getPaginaTimer.start(10000)     # tiempo en milisegundos
+    """
+
     def __init__(self):
         self.Notifi = 0
         self.Icono = 0
@@ -164,35 +183,35 @@ class ScrapTo:
         self.player.setMedia(content)
         self.getPaginaTimer = QTimer(timeout=self.getNotif)
         self.getPaginaTimer.start(10000)
-        #self.getpostsTimer = QTimer(timeout=self.getNewPosts)
-        #self.getpostsTimer.start(10000)
+        # self.getpostsTimer = QTimer(timeout=self.getNewPosts)
+        # self.getpostsTimer.start(10000)
         self.setTrayIconTimer = QTimer(timeout=self.setTrayIcon)
         self.setTrayIconTimer.start(500)
 
     def getNotif(self):
         if not Login.isVisible():
-                html = session.get(FORO_URL)
-                if html.status_code == 200:
-                    html = BeautifulSoup(html.text, "html.parser")
-                    resp = html.find('a', {'title': 'Identificarse'})
-                    if resp:
-                        Login.show()
-                    else:
-                        try:
-                            notificaciones = int(html.title.string.split()[0][1])
-                        except:
-                            notificaciones = 0
-
-                        if self.Notifi < int(notificaciones) != 0:
-                            self.player.play()
-                            en = Notificar()
-                            en.setTitulo(notificaciones)
-
-                        self.Notifi = int(notificaciones)
-                        Login.setTryIconTip(self.Notifi)
-
+            html = session.get(FORO_URL)
+            if html.status_code == 200:
+                html = BeautifulSoup(html.text, "html.parser")
+                resp = html.find('a', {'title': 'Identificarse'})
+                if resp:
+                    Login.show()
                 else:
-                    app.trayIcon.setToolTip('No conectado')
+                    try:
+                        notificaciones = int(html.title.string.split()[0][1])
+                    except:
+                        notificaciones = 0
+
+                    if self.Notifi < int(notificaciones) != 0:
+                        self.player.play()
+                        en = Notificar()
+                        en.setTitulo(notificaciones)
+
+                    self.Notifi = int(notificaciones)
+                    Login.setTryIconTip(self.Notifi)
+
+            else:
+                app.trayIcon.setToolTip('No conectado')
 
     def getNewPosts(self):
         # Aun en desarrollo
@@ -210,10 +229,8 @@ class ScrapTo:
 
             try:
                 topiclist.append(topic.text)
-
                 try:
                     usernames.append(user.text)
-
                 except:
                     user = i.find('a', 'username')
                     usernames.append(user.text)
@@ -230,7 +247,7 @@ class ScrapTo:
             en = Notificar()
             en.setTitulo(notificaciones=0, msgs=1)
 
-        posts_after = posts_before
+        posts_after = [x for x in posts_before]
 
     def setTrayIcon(self):
         if self.Notifi != 0:
@@ -245,6 +262,8 @@ class ScrapTo:
 
 
 class Notificar(QWidget):
+    """Interfaz de la notificacion"""
+
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.ToolTip)
@@ -257,9 +276,10 @@ class Notificar(QWidget):
         self.CenterLayout.setContentsMargins(0, 0, 0, 0)
         self.CenterLayout.setSpacing(0)
 
-        #add items
+        # add items
         self.CenterLayout.addWidget(self.MainBody())
         #
+
         self.setStyleSheet('background: rgb(137, 188, 255)')
         self.ocultar.start(3000)
         self.show()
@@ -312,8 +332,7 @@ class Notificar(QWidget):
         else:
             self.ocultar.time -= 0.01
             self.setWindowOpacity(self.ocultar.time)
-            self.ocultar.start(self.ocultar.time*100)
-
+            self.ocultar.start(self.ocultar.time * 100)
 
     def setTitulo(self, notific=0, msgs=0):
         if notific > 0:
@@ -324,25 +343,30 @@ class Notificar(QWidget):
 
 def acercaDe():
     QMessageBox.information(QWidget(), "Acerca de...", "Version: 2.1b\n"
-                                                   "Autor: aCC")
+                                                       "Autor: aCC")
 
 def goForo():
-    system("start %s" %FORO_URL) #Windows OS
+    system("start %s" % FORO_URL)  # Windows OS
+
 
 def InicioWindows():
     pass
 
+
 def check_profile():
     try:
-        #obteniendo los datos de usuario
+        # obteniendo los datos de usuario
         with open(my_profile_data, encoding='cp1026') as h:
-                mypro = load(h)
+            mypro = load(h)  # Si esta vacio lanza error JSONDecodeError
         return mypro
 
     except:
         return 0
 
+
 def delprofile():
+    """Mas claro ni el agua, para borrar el perfil, borrando los datos
+    salvados en el archivo 'profile.cfg' """
     msg = QMessageBox()
     msg.setText("¿ Estas seguro de borrar tu perfil ?")
     msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
@@ -353,16 +377,20 @@ def delprofile():
     else:
         pass
 
-def page_available():
-    # devuelve: 1- Pagina disponible, 0-No disponible
-    availability = requests.get(FORO_URL, verify=False)
-    if availability.status_code == 200:
-        return 1
-    else:
+
+def page_available(url):
+    """devuelve: 1-Pagina disponible, 0-No disponible"""
+    try:
+        availability = get(url, verify=False)
+        if availability.status_code == 200:
+            return 1
+        else:
+            return 0
+    except:
         return 0
 
+
 if __name__ == '__main__':
-    QCoreApplication.processEvents()
     app = QApplication([])
     app.setApplicationName('Notificador Foro HLG')
     app.setWindowIcon(QIcon(icons[0]))
@@ -374,9 +402,9 @@ if __name__ == '__main__':
     app.trayIcon = QSystemTrayIcon()
     trayIconMenu = QMenu()
 
-    goForoAction = QAction(QIcon(icon_forum_logo),"&Foro HLG", app, triggered=goForo)
-    quitAction = QAction(QIcon(icon_exit),"&Salir", app, triggered=QApplication.instance().quit)
-    acercaDeAction = QAction(QIcon(icon_info),"&Acerca de...", app, triggered=acercaDe)
+    goForoAction = QAction(QIcon(icon_forum_logo), "&Foro HLG", app, triggered=goForo)
+    quitAction = QAction(QIcon(icon_exit), "&Salir", app, triggered=QApplication.instance().quit)
+    acercaDeAction = QAction(QIcon(icon_info), "&Acerca de...", app, triggered=acercaDe)
     delprofileAction = QAction(QIcon(icon_remove), "&Eliminar mi perfil", app, triggered=delprofile)
 
     trayIconMenu.addAction(delprofileAction)
@@ -389,21 +417,22 @@ if __name__ == '__main__':
     app.trayIcon.setIcon(QIcon(icons[0]))
     app.trayIcon.show()
 
-    if page_available():
+    if page_available(FORO_URL):
 
         if check_profile():
             Login = Login()
             data = check_profile()
-            
+
             payloads = {
                 'username': data['user'],
                 'password': data['password'],
                 'login': 'Login',
                 'sid': '',
                 'redirect': 'index.php'
-                }
+            }
 
             petic = session.post(LOGIN_URL, data=payloads)
+            # Chequeando si los datos guardados son correctos
             html = BeautifulSoup(petic.text, 'html.parser')
             resp = html.find('div', {'class': 'error'})
             if resp:
@@ -416,6 +445,5 @@ if __name__ == '__main__':
 
     else:
         app.trayIcon.setToolTip('No conectado')
-
 
     app.exec_()
