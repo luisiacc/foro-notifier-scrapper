@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout,\
-    QGridLayout, QApplication, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,\
+    QMessageBox, QHBoxLayout, QGridLayout, QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtCore import Qt, QUrl, QTimer, QCoreApplication
 from PyQt5.QtGui import QIcon, QPixmap, QFont, QCursor
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
@@ -11,6 +11,9 @@ import style
 from requests import Session, packages, get
 
 packages.urllib3.disable_warnings()  # Deshabilitar advertencias
+
+# Configurando el registro de la aplicacion a un fichero .log
+logging.basicConfig(filename='Notificador-Foro-HLG.log',level=logging.INFO, format='%(asctime)s %(message)s')
 
 # iconos para mostrar en la barra
 icons = ['images/forum.png', 'images/forum_msg.png']
@@ -111,12 +114,13 @@ class Login(QWidget):
     def save_data(self):
         """Guarda los datos que se escriben en los campos de edicion y los codifica
         a 'cp1026' """
+        logging.info('Funcion save_data() aplicada, datos guardados')
         userdata = {'user': self.EditNombre.text(), 'password': self.EditPass.text()}
         with open(my_profile_data, 'w', encoding='cp1026')as h:
             dump(userdata, h)
 
     def loguearse(self):
-
+        logging.info('Logueandose en la pagina')
         self.payloads = {
             'username': self.EditNombre.text(),
             'password': self.EditPass.text(),
@@ -130,14 +134,17 @@ class Login(QWidget):
         html = session.post(LOGIN_URL, data=self.payloads)
 
         if html.status_code == 200:
+            logging.info('Pagina encontrada')
             html = BeautifulSoup(html.text, "html.parser")
             resp = html.find('div', {'class': 'error'})
             if resp:
+                logging.info('Datos incorrectos introducidos')
                 resp = str(resp).replace('href=".', 'href="' + FORO_URL)
                 QMessageBox.information(self, "Error de identificacion", resp)
                 # Descargando el Captcha
                 resp = html.find('dd', {'class': 'captcha captcha-image'})
                 if resp:
+                    logging.info('Descargando el Captcha')
                     resp = html.find('img')
                     resp = resp.get("src")
                     if resp[0] == '.':
@@ -154,6 +161,7 @@ class Login(QWidget):
                     self.EditCAPTCHA.show()
 
             else:
+                logging.info('Logueado correctamente')
                 self.close()
 
     def setTryIconTip(self, text=0, msgs=0):
@@ -205,6 +213,7 @@ class ScrapTo:
                             notificaciones = 0
 
                         if self.Notifi < int(notificaciones) != 0:
+                            logging.info('Tienes %s notificacion/es' %notificaciones)
                             self.player.play()
                             en = Notificar()
                             en.setTitulo(notificaciones)
@@ -213,13 +222,10 @@ class ScrapTo:
                         Login.setTryIconTip(self.Notifi)
 
                 else:
-                    app.trayIcon.setToolTip('No conectado')
+                    raise FileNotFoundError
             except:
+                logging.info('No se pudo establecer una conexion con el servidor')
                 app.trayIcon.setToolTip('No conectado')
-
-
-
-
 
     def getNewPosts(self):
         # Aun en desarrollo
@@ -356,21 +362,19 @@ def acercaDe():
 def goForo():
     system("start %s" % FORO_URL)  # Windows OS
 
-
 def InicioWindows():
     pass
-
 
 def check_profile():
     try:
         # obteniendo los datos de usuario
+        logging.info('Analizando el archivo "profile.cfg" ')
         with open(my_profile_data, encoding='cp1026') as h:
             mypro = load(h)  # Si esta vacio lanza error JSONDecodeError
         return mypro
-
     except:
+        logging.info('El archivo "profile.cfg esta vacio" ')
         return 0
-
 
 def delprofile():
     """Mas claro ni el agua, para borrar el perfil, borrando los datos
@@ -380,6 +384,7 @@ def delprofile():
     msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     value = msg.exec_()
     if value == 1024:
+        logging.info('Borrando perfil')
         with open(my_profile_data, 'w', encoding='cp1026') as m:
             pass
     else:
@@ -391,10 +396,13 @@ def page_available(url):
     try:
         availability = get(url, verify=False)
         if availability.status_code == 200:
+            logging.info('Pagina disponible')
             return 1
         else:
+            logging.info('Pagina no disponible')
             return 0
     except:
+        logging.info('Pagina no encontrada')
         return 0
 
 
@@ -428,6 +436,7 @@ if __name__ == '__main__':
     if page_available(FORO_URL):
 
         if check_profile():
+            logging.info('Obteniendo los datos del archivo "profile.cfg" ')
             Login = Login()
             data = check_profile()
 
@@ -444,9 +453,12 @@ if __name__ == '__main__':
             html = BeautifulSoup(petic.text, 'html.parser')
             resp = html.find('div', {'class': 'error'})
             if resp:
+                logging.info('Datos guardados incorrectos')
                 Login.show()
+            logging.info('Notificando')
             ScrapTo = ScrapTo()
         else:
+            logging.info('Ejecutando Login')
             Login = Login()
             Login.show()
             Scrap = ScrapTo()
