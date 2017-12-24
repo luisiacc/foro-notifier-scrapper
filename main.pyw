@@ -13,7 +13,7 @@ from requests import Session, packages, get
 packages.urllib3.disable_warnings()  # Deshabilitar advertencias
 
 # Configurando el registro de la aplicacion a un fichero .log
-logging.basicConfig(filename='Notificador-Foro-HLG.log',level=logging.INFO, format='%(asctime)s %(message)s')
+logging.basicConfig(filename='Notificador-Foro-HLG.log',level=logging.INFO, format='[%(asctime)s] %(message)s')
 
 # iconos para mostrar en la barra
 icons = ['images/forum.png', 'images/forum_msg.png']
@@ -198,6 +198,7 @@ class ScrapTo:
         self.setTrayIconTimer.start(500)
 
     def getNotif(self):
+        logging.info('getNotif')
         if not Login.isVisible():
             try:
                 html = session.get(FORO_URL)
@@ -205,7 +206,7 @@ class ScrapTo:
                     html = BeautifulSoup(html.text, "html.parser")
                     resp = html.find('a', {'title': 'Identificarse'})
                     if resp:
-                        Login.show()
+                        use_saved_data()
                     else:
                         try:
                             notificaciones = int(html.title.string.split()[0][1])
@@ -225,6 +226,7 @@ class ScrapTo:
                     raise FileNotFoundError
             except:
                 logging.info('No se pudo establecer una conexion con el servidor')
+                self.Notifi = 0
                 app.trayIcon.setToolTip('No conectado')
 
     def getNewPosts(self):
@@ -405,6 +407,31 @@ def page_available(url):
         logging.info('Pagina no encontrada')
         return 0
 
+def use_saved_data():
+    if check_profile():
+        logging.info('Obteniendo los datos del archivo "profile.cfg" ')
+        data = check_profile()
+
+        payloads = {
+            'username': data['user'],
+            'password': data['password'],
+            'login': 'Login',
+            'sid': '',
+            'redirect': 'index.php'
+        }
+
+        petic = session.post(LOGIN_URL, data=payloads)
+        # Chequeando si los datos guardados son correctos
+        html = BeautifulSoup(petic.text, 'html.parser')
+        resp = html.find('div', {'class': 'error'})
+        if resp:
+            logging.info('Datos guardados incorrectos')
+            Login.show()
+        logging.info('Notificando')
+    else:
+        logging.info('Ejecutando Login')
+        Login.show()
+
 
 if __name__ == '__main__':
     app = QApplication([])
@@ -433,37 +460,13 @@ if __name__ == '__main__':
     app.trayIcon.setIcon(QIcon(icons[0]))
     app.trayIcon.show()
 
+    Login = Login()
     if page_available(FORO_URL):
-
-        if check_profile():
-            logging.info('Obteniendo los datos del archivo "profile.cfg" ')
-            Login = Login()
-            data = check_profile()
-
-            payloads = {
-                'username': data['user'],
-                'password': data['password'],
-                'login': 'Login',
-                'sid': '',
-                'redirect': 'index.php'
-            }
-
-            petic = session.post(LOGIN_URL, data=payloads)
-            # Chequeando si los datos guardados son correctos
-            html = BeautifulSoup(petic.text, 'html.parser')
-            resp = html.find('div', {'class': 'error'})
-            if resp:
-                logging.info('Datos guardados incorrectos')
-                Login.show()
-            logging.info('Notificando')
-            ScrapTo = ScrapTo()
-        else:
-            logging.info('Ejecutando Login')
-            Login = Login()
-            Login.show()
-            Scrap = ScrapTo()
-
+        use_saved_data()
     else:
         app.trayIcon.setToolTip('No conectado')
+
+    # Siempre se aplica ScrapTo
+    ScrapTo = ScrapTo()
 
     app.exec_()
