@@ -5,6 +5,6 @@
 3. PyQt5
 
 ### Sugerencia:
-> Usar [Anaconda](http://www.anaconda.org)
+* Usar [Anaconda](http://www.anaconda.org)
 
 Te hace saber las notificaciones que tienes en el FORO HLG
