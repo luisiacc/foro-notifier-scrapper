@@ -70,8 +70,8 @@ class AR(QThread):
 
     def run(self):
         while True:
-            self.sleep(6)
-            self.main_notif()
+            self.main_notif ()
+            self.sleep(self.Class.time)
 
     def int_notification(self):
         try:
@@ -99,6 +99,7 @@ class ScrapTo:
     def __init__(self):
         # Cargar la configuracion
 
+        self.en = Notificar(ancho, alto)
         self.file = DataFile (config_file)
         self.settings = self.file.from_file ()
         self.time = int(self.settings['time_between_requests'])
@@ -111,7 +112,6 @@ class ScrapTo:
         content_notif = QMediaContent (url_notif)
         self.player = QMediaPlayer ()
         self.player.setMedia (content_notif)
-        print ('aa')
         self.setTrayIconTimer = QTimer (timeout=self.setTrayIcon)
         self.setTrayIconTimer.start (400)
 
@@ -139,20 +139,21 @@ class ScrapTo:
 
             if notifications or new_posts:
                 self.player.play()
-                en = Notificar(ancho, alto)
 
                 if notifications and new_posts:
-                    en.setTitulo(notific=notifications, msgs=new_posts)
+                    self.en.setTitulo(notific=notifications, msgs=new_posts)
                     logging.info('%s Notificaciones, %s Mensajes Nuevos' % (notifications, new_posts))
                 elif notifications:
-                    en.setTitulo(notifications)
+                    self.en.setTitulo(notifications)
                     logging.info('%s Notificaciones' % notifications)
                 elif new_posts:
                     logging.info('%s Mensajes Nuevos' % new_posts)
-                    en.setTitulo(msgs=new_posts)
-                en.trigger_notification()
+                    self.en.setTitulo(msgs=new_posts)
+                self.en.trigger_notification()
+            else:
+                pass
 
-                setTryIconTip(notifications, new_posts)
+            setTryIconTip(self.Notifi, self.posts)
 
             # end if notifications or new posts
 
