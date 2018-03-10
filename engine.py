@@ -4,9 +4,7 @@ from requests import Session, packages, get
 from os import getcwd
 from json import load, dump
 from webbrowser import open as openpage
-from threading import Thread
 import logging
-import gc
 
 packages.urllib3.disable_warnings()  # Deshabilitar advertencias
 
@@ -15,6 +13,7 @@ LOGIN_URL = 'https://192.168.16.113/ucp.php?mode=login'
 NEWPOSTS_URL = 'https://192.168.16.113/search.php?search_id=newposts'
 FORO_URL = 'https://192.168.16.113'
 NEW_URL = 'https://192.168.16.113/search.php?search_id=egosearch'
+NOTIF_URL = 'https://192.168.16.113/ucp.php?i=ucp_notifications'
 headers = {'User-Agent': 'Mozilla/5.0'}
 
 # vars
@@ -81,7 +80,10 @@ class ForumScrap:
                 return 1
 
     def get_notification(self):
-        html = session.get(FORO_URL)
+        try:
+            html = session.get(NOTIF_URL)
+        except:
+            raise Exception
         if html.status_code == 200:
             html = BeautifulSoup(html.text, "html.parser")
             resp = html.find('a', {'title': 'Identificarse'})
@@ -95,13 +97,71 @@ class ForumScrap:
                 except:
                     notificaciones = 0
 
-                return notificaciones
+                if notificaciones:
+                    info = self.get_html_notif(html, notificaciones)
+                    return info
+                else:
+                    return []
         else:
             raise Exception
 
+    def get_html_notif(self, soup: BeautifulSoup, number):
+        li = []
+        hy = 0
+        for i in soup.find_all ('li', 'row'):
+            if hy == number:
+                break
+            hy += 1
+            img = i.find ('img')
+            src = img.get ('data-src')
+            if src is None:
+                src = img.get ('src')
+            srcf = 'https://192.168.16.113' + src[1:]
+            avatar_name = self.get_name (src)
+
+            if self.not_exists(avatar_name):
+                self.download_img (srcf, avatar_name)
+
+            clas_notif = i.find ('div', {'class': 'notifications'})
+            te = clas_notif.find ('a')
+            if te is not None:
+                # n = str(te).replace('href="./', 'href="https://192.168.16.113/')
+                # n = n.replace('amp;', '')
+                # m = n[:3] + 'style="color:black; text-decoration:none" ' + n[3:]
+                notification = str (clas_notif).replace ('href="./', 'href="https://192.168.16.113/')
+            else:
+                notification = str (clas_notif)
+
+            li.append([notification, avatar_name])
+        return li
+
+    def get_name(self, url: str):
+        if url.startswith ('./download'):
+            place = url.find ('avatar')
+            return 'avatars/'+url[place + 7:]
+        else:
+            return 'avatars/no_avatar.gif'
+
+    def download_img(self, url, name):
+        file = session.get (url, stream=True)
+        with open (name, 'wb') as h:
+            for i in file.iter_content ():
+                h.write (i)
+
+    def not_exists(self, file):
+        try:
+            m = open (file)
+            m.close ()
+            return False
+        except FileNotFoundError:
+            return True
+
     def get_new_posts(self):
         def respones():
-            soup = session.get(NEWPOSTS_URL)
+            try:
+                soup = session.get(NEWPOSTS_URL)
+            except:
+                raise Exception
             if soup.status_code == 200:
                     soup = BeautifulSoup(soup.text, 'html.parser')
                     respuestas = []
@@ -116,11 +176,11 @@ class ForumScrap:
 
                         try:
                             respuestas.append(answers.text)
-                            posts.append(topic.text)
+                            topic = str(topic).replace('href="./', 'href="https://192.168.16.113/')
+                            posts.append(str(topic))
+
                         except:
                             pass
-
-
                     # Quitar los tabuladores \t y saltos de linea \n
                     respuestas = [x.replace('\n\t\t\t\t\t\t', '') for x in respuestas]
                     # Convirtiendo los resultados de la lista 'respuestas' al numero de
@@ -140,9 +200,8 @@ class ForumScrap:
         get_data = list(file.from_file())
         # Obtengo los posts actuales de la pagina
         zipped_list = respones()
-
-        counter = 0
         # Chequeando si el fichero esta vacio
+        news = []
         if not get_data:
             # Si esta vacio escribe los post actuales
             file.to_file(list(zipped_list))
@@ -155,7 +214,7 @@ class ForumScrap:
                     # index si no encuentra el valor lanza excepcion
                     place = get_data.index(chain)
                 except:
-                    counter += 1
+                    news.append(post)
                     get_data.append(chain)
                     file.to_file(get_data)
 
@@ -164,7 +223,7 @@ class ForumScrap:
         else:
             pass
 
-        return counter
+        return news
 
 class DataFile:
     def __init__(self, file):

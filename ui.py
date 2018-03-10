@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import QPushButton, QHBoxLayout, QVBoxLayout, QCheckBox, QSpinBox, QLabel, \
-    QGroupBox, QLineEdit, QGridLayout, QComboBox, QProxyStyle, QApplication
-from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QRect, QThread
+    QGroupBox, QLineEdit, QGridLayout, QComboBox, QProxyStyle, QApplication, QTextBrowser
+from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QRect
 from PyQt5.QtGui import QIcon, QFont, QCursor, QPixmap, QFontDatabase
 from engine import *
-import font
+import rc
 import style
 
 # Variables de archivos a usar (imagenes, texto, sonido)
@@ -27,8 +27,7 @@ class Config(QWidget):
     def __init__(self):
         super(Config, self).__init__()
         #
-        self.en = Notificar (QApplication.desktop ().width (),
-                             QApplication.desktop ().height ())
+        self.en = Notificar ()
         #
 
         self.setWindowFlags(Qt.WindowCloseButtonHint)
@@ -53,6 +52,7 @@ class Config(QWidget):
 
         self.setLayout(mainLayout)
 
+
     def Notification_group(self):
         groupBox = QGroupBox('Notificar')
 
@@ -60,6 +60,8 @@ class Config(QWidget):
         notifications.setChecked(1)
         notifications.setDisabled(1)
         self.new_messages = QCheckBox('Nuevos Mensajes')
+        self.new_messages.setToolTip('Selecciona para notificar TODOS los mensajes que se publican.\n'
+                               'No recomendado para Moderadores')
 
         layout = QVBoxLayout()
         layout.addWidget(notifications)
@@ -74,8 +76,9 @@ class Config(QWidget):
         layout = QHBoxLayout()
         label = QLabel('Estilos: ')
         self.styles = QComboBox(currentIndexChanged=self.show_style)
+        self.styles.setToolTip('Elige tu estilo')
+        self.styles.addItems (i for i in ['Default', 'Dark', 'White'])
         self.styles.currentIndexChanged.connect(self.show_style)
-        self.styles.addItems(i for i in ['Default', 'Dark', 'Dark & Color', 'White'])
         layout.addWidget(label)
         layout.addWidget(self.styles)
         groupBox.setLayout(layout)
@@ -83,8 +86,15 @@ class Config(QWidget):
         return groupBox
 
     def show_style(self):
-        self.en.change_style(self.styles.currentIndex())
-        self.en.trigger_notification(anim=False)
+        if self.isVisible():
+            test_html = """<div class="notifications">
+            <a href="https://192.168.16.113">
+            <p class="notifications_title"><strong>Texto de prueba</strong> de <span class="username">
+            Usuario404</span>: "Un saludo"</p></a><p class="notifications_time">
+            <span title="Sat Mar 10, 2018 10:53 am">56 seconds ago</span></p></div>"""
+            self.en.setInfo('avatars/no_avatar.gif', test_html)
+            self.en.change_style(self.styles.currentIndex())
+            self.en.trigger_notification(anim=False)
 
     def connection_parameters(self):
         groupBox = QGroupBox('Parametros de conexión')
@@ -236,16 +246,29 @@ class Notificar(QWidget):
             alto -> altura de la pantalla
     """
 
-    def __init__(self, ancho, alto):
+    def __init__(self):
         super().__init__()
+        # color de la letra en la notificacion
+        self.defaultColor = '#d3c7c7'
+        self.defaultBackground = '#3a3838'
+
+        self.setStyleSheet("background: #3a3838; border: 1px solid #a59191")
         datafont = QFontDatabase()
         datafont.addApplicationFont(':Adventur.ttf')
 
-        self.ancho = ancho
-        self.alto = alto
+
+
+        self.restancho = 375
+        self.ancho = QApplication.desktop().width() - self.restancho
+        self.restalto = 160
+        self.alto = QApplication.desktop().height() - self.restalto
+
+
+        self.sizeWidth = 370
+        self.sizeHeight = 115
 
         self.setWindowFlags(Qt.ToolTip)
-        self.setGeometry(self.ancho - 295, self.alto - 120, 290, 75)
+        self.setGeometry(self.ancho, self.alto, self.sizeWidth, self.sizeHeight)
         self.cursor = QCursor()
         self.ocultar = QTimer(timeout=self.Ocultar)
         self.ocultar.time = 1.0
@@ -255,94 +278,98 @@ class Notificar(QWidget):
         self.CenterLayout.setSpacing(0)
 
         # add items
-        self.CenterLayout.addWidget(self.MainBody())
+        self.CenterLayout.addWidget(self.MainBody2())
         #
 
         # applying saved data
         file = DataFile(config_file)
         data = file.from_file()
-        self.change_style(data['current_style'])
+        self.change_style(data['current_style'], reboot=False)
 
     def trigger_notification(self, anim=True):
         if anim:
             self.an = QPropertyAnimation (self, b'geometry')
-            self.an.setStartValue (QRect (self.ancho, self.alto - 120, 290, 75))
-            self.an.setEndValue (QRect (self.ancho - 295, self.alto - 120, 290, 75))
+            self.an.setStartValue (QRect (self.ancho + self.restancho, self.alto, self.sizeWidth, self.sizeHeight))
+            self.an.setEndValue (QRect (self.ancho, self.alto, self.sizeWidth, self.sizeHeight))
             self.an.setDuration (250)
             self.show ()
             self.an.start ()
         else:
-            self.setGeometry (self.ancho - 295, self.alto - 120, 290, 75)
+            self.setGeometry (self.ancho, self.alto, self.sizeWidth, self.sizeHeight)
             self.show()
 
+        self.ocultar.time = 1.0
+        self.setWindowOpacity (self.ocultar.time)
         self.ocultar.start (3000)
 
     def close_anim(self):
         self.vn = QPropertyAnimation (self, b'geometry')
-        self.vn.setStartValue (QRect (self.ancho - 295, self.alto - 120, 290, 75))
-        self.vn.setEndValue (QRect (self.ancho, self.alto - 115, 2, 50))
+        self.vn.setStartValue (QRect (self.ancho, self.alto, self.sizeWidth, self.sizeHeight))
+        self.vn.setEndValue (QRect (self.ancho + self.restancho, self.alto, self.sizeWidth, self.sizeHeight))
         self.vn.setDuration (150)
         self.vn.finished.connect(lambda : self.close())
         self.vn.start ()
 
-    def MainBody(self):
 
-        Widget = QWidget()
+    def MainBody2(self):
+        self.widget = QWidget()
+        layout = QHBoxLayout()
+        mainlayout = QVBoxLayout(self.widget)
+        self.cerrar = QPushButton (clicked=self.close_anim)
+        self.cerrar.setStyleSheet (style.closebutton)
+        self.title_label = QLabel ('Tienes 0 notificaciones')
+        self.title_label.setStyleSheet('border: none')
+        self.avatar = QLabel('Avatar')
+        self.bla = QTextBrowser()
+        self.bla.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.bla.setOpenExternalLinks(True)
+        self.bla.setStyleSheet("""border: 0px; background: transparent; 
+                               font: 8pt 'Segoe UI'""")
+        self.avatar.setScaledContents(True)
+        self.avatar.setMaximumSize(60, 70)
+        layout.addWidget(self.avatar, alignment=Qt.AlignTop)
+        layout.addWidget (self.bla)
 
-        self.CenterLayout = QGridLayout()
-        self.MainLayout = QHBoxLayout(Widget)
-        self.Avatar = QLabel()
-        self.Avatar.setPixmap(QPixmap(icon_forum_logo))
-        self.Avatar.setAlignment(Qt.AlignCenter)
-        self.Avatar.setMaximumSize(50, 50)
-        self.Avatar.setScaledContents(True)
+        lay = QHBoxLayout ()
+        lay.addWidget (self.title_label)
+        lay.addStretch(15)
+        lay.addWidget (self.cerrar, Qt.AlignRight)
 
+        mainlayout.addLayout(lay)
+        mainlayout.addLayout(layout)
+        return self.widget
 
-        self.Titulo = QLabel('<b>Notificador <a href=http://192.168.16.113>Forum HLG</a></b>')
-        self.Titulo.setOpenExternalLinks(True)
-        self.Titulo.setObjectName ('notiflabel')
-        self.Texto = QLabel('No hay notificaciones')
+    def setInfo(self, avatar, info):
+        #self.body.setText(info)
+        style = '<style> div{color:%s}a{color:%s}</style>' % (self.defaultColor, self.defaultColor)
+        self.bla.setHtml(style+info )
+        self.avatar.setPixmap(QPixmap(avatar))
 
-        self.cerrar = QPushButton(clicked=self.close_anim)
-        self.cerrar.setStyleSheet(style.closebutton)
+    def setNotificationsContent(self, n=[]):
+        self.setInfo(n[1], n[0])
 
-        self.CenterLayout.addWidget(self.Titulo, 0, 0)
-        self.CenterLayout.addWidget(self.cerrar, 0, 1)
-        self.CenterLayout.addWidget(self.Texto, 1, 0)
-
-        self.MainLayout.addWidget(self.Avatar)
-        self.MainLayout.addLayout(self.CenterLayout)
-
-        return Widget
+    def setNewMessageContent(self, m=[]):
+        default = 'avatars/no_avatar.gif'
+        self.setInfo (default, m[0])
 
     def change_style(self, index, reboot=True):
-        titleText = {1: '<b>Notificador <a style="color: #cccccc" '
-                         'href=http://192.168.16.113>Forum HLG</a></b>',
-                     2: '<b><a style="color: #ffe279">Notificador <a style="color: #ff5219" '
-                         'href=http://192.168.16.113>Forum HLG</a></b>',
-                     3: '<b>Notificador <a '
-                        'href=http://192.168.16.113>Forum HLG</a></b>'}
+        white_font = '#d3c7c7'
+        black_font = '#292828'
+        black_background = '#3a3838'
+        blue_background = '#2d76d4'
+        white_background = '#d7dbe0'
 
-        if index == 1:
-            self.setStyleSheet(style.notification_widget_style_dark)
-            self.Titulo.setText (titleText[1])
-        elif index == 2:
-            self.setStyleSheet (style.notification_widget_style_dark)
-            self.Titulo.setText (titleText[2])
-        elif index == 3:
-            self.setStyleSheet(style.notification_widget_style_white)
-            self.Titulo.setText (titleText[3])
-        else:
-            self.setStyleSheet (style.notification_widget_style_default)
-            self.Titulo.setText (titleText[3])
+        complements = [(blue_background, black_font), (black_background, white_font),
+                       (white_background, black_font)]
+        self.setStyleSheet ("background: %s; border: 1px solid #a59191" % complements[index][0])
+        self.defaultColor = complements[index][1]
 
         if reboot:
             self.ocultar.time = 1.0
             self.setWindowOpacity (self.ocultar.time)
-            self.ocultar.start (1000)
+            self.ocultar.start (5000)
         else:
             pass
-
 
     def Ocultar(self):
         if self.windowOpacity() <= 0.01:
@@ -360,9 +387,18 @@ class Notificar(QWidget):
 
     def setTitulo(self, notific=0, msgs=0):
         if notific and msgs:
-            self.Texto.setText('Tienes %s notificaciones y %s Mensajes\n Nuevos' % (notific, msgs))
+            self.title_label.setText('Tienes %s notificaciones y %s Mensajes Nuevos' % (notific, msgs))
         elif notific :
-            self.Texto.setText('Tienes %s notificaciones' % notific)
+            self.title_label.setText ('Tienes %s notificaciones' % notific)
         elif msgs:
-            self.Texto.setText('Hay %s Mensajes Nuevos' % msgs)
+            self.title_label.setText ('Tienes %s Mensajes Nuevos' % msgs)
+
+
+
+
+if __name__ == '__main__':
+    app = QApplication([])
+    m = Notificar()
+    m.trigger_notification()
+    app.exec_()
 
