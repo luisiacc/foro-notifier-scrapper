@@ -52,14 +52,8 @@ class TrayIcon (QSystemTrayIcon):
 
     def lit_show(self):
         self.noti = Notificar ()
-        test_html = """<div class="notifications">
-                    <a href="https://192.168.16.113">
-                    <p class="notifications_title"><strong>Texto de prueba</strong> de <span class="username">
-                    Usuario404</span>: "Un saludo"</p></a><p class="notifications_time">
-                    <span title="Sat Mar 10, 2018 10:53 am">56 seconds ago</span></p></div>"""
-        self.noti.setInfo ('avatars/no_avatar.gif', test_html)
+        self.noti.show_example()
         self.noti.trigger_notification ()
-
 
 class AR (QThread):
     signal = pyqtSignal (list, list)
@@ -88,6 +82,7 @@ class AR (QThread):
             logging.info ('No se pudo establecer una conexion con el servidor')
             trayIcon.setToolTip ('No conectado')
             self.Class.Notifi = 0
+
             return 404
 
     def int_newPosts(self):

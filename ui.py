@@ -87,12 +87,7 @@ class Config(QWidget):
 
     def show_style(self):
         if self.isVisible():
-            test_html = """<div class="notifications">
-            <a href="https://192.168.16.113">
-            <p class="notifications_title"><strong>Texto de prueba</strong> de <span class="username">
-            Usuario404</span>: "Un saludo"</p></a><p class="notifications_time">
-            <span title="Sat Mar 10, 2018 10:53 am">56 seconds ago</span></p></div>"""
-            self.en.setInfo('avatars/no_avatar.gif', test_html)
+            self.en.show_example()
             self.en.change_style(self.styles.currentIndex())
             self.en.trigger_notification(anim=False)
 
@@ -170,7 +165,7 @@ class Login(QWidget):
         font.setItalic(True)
         font.setWeight(75)
 
-        self.head = QLabel("<a style='color: #757575' href=http://192.168.16.113>FORUM HLG</a>")
+        self.head = QLabel("<a style='color: #757575' href=http://foro.hlg.cu>FORUM HLG</a>")
         self.head.setObjectName('labelforum')
         self.head.setOpenExternalLinks(True)
 
@@ -338,6 +333,14 @@ class Notificar(QWidget):
         mainlayout.addLayout(lay)
         mainlayout.addLayout(layout)
         return self.widget
+
+    def show_example(self):
+        test_html = """<div class="notifications">
+                    <a href="https://foro.hlg.cu">
+                    <p class="notifications_title"><strong>Texto de prueba</strong> de <span class="username">
+                    Usuario404</span>: "Un saludo"</p></a><p class="notifications_time">
+                    <span title="Sat Mar 10, 2018 10:53 am">56 seconds ago</span></p></div>"""
+        self.setInfo ('avatars/no_avatar.gif', test_html)
 
     def setInfo(self, avatar, info):
         #self.body.setText(info)

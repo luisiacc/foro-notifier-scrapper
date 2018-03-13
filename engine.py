@@ -7,13 +7,14 @@ from webbrowser import open as openpage
 import logging
 
 packages.urllib3.disable_warnings()  # Deshabilitar advertencias
+DOMAIN = 'https://foro.hlg.cu'
 
 # urls a usar
-LOGIN_URL = 'https://192.168.16.113/ucp.php?mode=login'
-NEWPOSTS_URL = 'https://192.168.16.113/search.php?search_id=newposts'
-FORO_URL = 'https://192.168.16.113'
-NEW_URL = 'https://192.168.16.113/search.php?search_id=egosearch'
-NOTIF_URL = 'https://192.168.16.113/ucp.php?i=ucp_notifications'
+LOGIN_URL = DOMAIN + '/ucp.php?mode=login'
+NEWPOSTS_URL = DOMAIN + '/search.php?search_id=newposts'
+FORO_URL = DOMAIN
+NEW_URL = DOMAIN + '/search.php?search_id=egosearch'
+NOTIF_URL = DOMAIN + '/ucp.php?i=ucp_notifications'
 headers = {'User-Agent': 'Mozilla/5.0'}
 
 # vars
@@ -84,10 +85,12 @@ class ForumScrap:
             html = session.get(NOTIF_URL)
         except:
             raise Exception
+
         if html.status_code == 200:
             html = BeautifulSoup(html.text, "html.parser")
             resp = html.find('a', {'title': 'Identificarse'})
             if resp:
+                print ('noti')
                 resp = use_saved_data()
                 if not resp:
                     raise FileNotFoundError
@@ -116,7 +119,7 @@ class ForumScrap:
             src = img.get ('data-src')
             if src is None:
                 src = img.get ('src')
-            srcf = 'https://192.168.16.113' + src[1:]
+            srcf = DOMAIN + src[1:]
             avatar_name = self.get_name (src)
 
             if self.not_exists(avatar_name):
@@ -128,7 +131,7 @@ class ForumScrap:
                 # n = str(te).replace('href="./', 'href="https://192.168.16.113/')
                 # n = n.replace('amp;', '')
                 # m = n[:3] + 'style="color:black; text-decoration:none" ' + n[3:]
-                notification = str (clas_notif).replace ('href="./', 'href="https://192.168.16.113/')
+                notification = str (clas_notif).replace ('href="./', 'href="%s/' %DOMAIN)
             else:
                 notification = str (clas_notif)
 
@@ -176,7 +179,7 @@ class ForumScrap:
 
                         try:
                             respuestas.append(answers.text)
-                            topic = str(topic).replace('href="./', 'href="https://192.168.16.113/')
+                            topic = str(topic).replace('href="./', 'href="%s/' %DOMAIN)
                             posts.append(str(topic))
 
                         except:
@@ -296,7 +299,7 @@ def use_saved_data():
         # Chequeando si los datos guardados son correctos
         html = BeautifulSoup(petic.text, 'html.parser')
         resp = html.find('div', {'class': 'error'})
-        if resp:
+        if resp is not None:
             logging.info('Datos guardados incorrectos')
             return 0
         else:
